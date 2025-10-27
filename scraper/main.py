@@ -1,42 +1,32 @@
-import os
-import requests
-from bs4 import BeautifulSoup
+import os, requests
+from scraper.imobiliarias import (
+    serrano, solemar, conceito, supreema, casabela, genial, mw, silvaso
+)
 
-# Credenciais do Telegram vindas dos secrets do GitHub
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# Lista de sites e funções específicas
-from imobiliarias import casabela, dtx, sainthome, serrano
-
-def send_message(message):
-    """Envia mensagem para o Telegram"""
+def tg(msg: str):
+    if not TELEGRAM_TOKEN or not CHAT_ID:
+        print("Telegram não configurado.")
+        return
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
-    try:
-        requests.post(url, data=payload)
-    except Exception as e:
-        print(f"Erro ao enviar mensagem: {e}")
+    requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
+
+SITES = [serrano, solemar, conceito, supreema, casabela, genial, mw, silvaso]
 
 def main():
-    send_message("🏠 Iniciando coleta de imóveis...")
-    total_coletados = 0
-
-    # Executa coleta em cada imobiliária
-    for func, nome in [
-        (casabela.run, "Casa Bela"),
-        (dtx.run, "DTX"),
-        (sainthome.run, "Saint Home"),
-        (serrano.run, "Serrano"),
-    ]:
+    tg("✅ Imóvel Tracker iniciado. Coletando nos 8 sites...")
+    total = 0
+    linhas = []
+    for mod in SITES:
         try:
-            qtd = func()
-            total_coletados += qtd
-            send_message(f"✅ {nome}: {qtd} imóveis coletados com sucesso.")
+            itens = mod.scrape()
+            total += len(itens)
+            linhas.append(f"{mod.SOURCE_NAME}: {len(itens)}")
         except Exception as e:
-            send_message(f"⚠️ Erro ao coletar {nome}: {e}")
-
-    send_message(f"🏁 Coleta concluída. Total: {total_coletados} imóveis.")
+            linhas.append(f"{getattr(mod,'SOURCE_NAME','site')}: erro ({e})")
+    tg(f"📊 Coleta concluída: {total} imóveis. " + " | ".join(linhas))
 
 if __name__ == "__main__":
     main()
