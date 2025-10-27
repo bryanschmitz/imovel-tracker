@@ -1,24 +1,42 @@
-
 import os
 import requests
-from scraper.imobiliarias import serrano, dtx, casabela, sainthome
+from bs4 import BeautifulSoup
 
+# Credenciais do Telegram vindas dos secrets do GitHub
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-def send_telegram_message(message):
+# Lista de sites e funções específicas
+from imobiliarias import casabela, dtx, sainthome, serrano
+
+def send_message(message):
+    """Envia mensagem para o Telegram"""
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    data = {"chat_id": CHAT_ID, "text": message}
-    requests.post(url, data=data)
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
+    try:
+        requests.post(url, data=payload)
+    except Exception as e:
+        print(f"Erro ao enviar mensagem: {e}")
 
 def main():
-    novos = []
-    for func in [serrano.get_data, dtx.get_data, casabela.get_data, sainthome.get_data]:
-        novos.extend(func())
-    if novos:
-        send_telegram_message(f"Novos imóveis detectados: {len(novos)}")
-    else:
-        send_telegram_message("Nenhuma atualização encontrada.")
+    send_message("🏠 Iniciando coleta de imóveis...")
+    total_coletados = 0
+
+    # Executa coleta em cada imobiliária
+    for func, nome in [
+        (casabela.run, "Casa Bela"),
+        (dtx.run, "DTX"),
+        (sainthome.run, "Saint Home"),
+        (serrano.run, "Serrano"),
+    ]:
+        try:
+            qtd = func()
+            total_coletados += qtd
+            send_message(f"✅ {nome}: {qtd} imóveis coletados com sucesso.")
+        except Exception as e:
+            send_message(f"⚠️ Erro ao coletar {nome}: {e}")
+
+    send_message(f"🏁 Coleta concluída. Total: {total_coletados} imóveis.")
 
 if __name__ == "__main__":
     main()
